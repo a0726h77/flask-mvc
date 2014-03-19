@@ -27,7 +27,11 @@ import logging
 from logging.handlers import RotatingFileHandler
 import os
 
-handler = RotatingFileHandler('/'.join((os.path.dirname(os.path.realpath(__file__)), 'log/debug.log')), maxBytes=10000, backupCount=1)
+LOG_PATH = '/'.join((os.path.dirname(os.path.realpath(__file__)), 'log'))
+if not os.path.exists(LOG_PATH):
+    os.makedirs(LOG_PATH)
+
+handler = RotatingFileHandler(LOG_PATH + '/debug.log', maxBytes=10000, backupCount=1)
 handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
 handler.setLevel(logging.INFO)
 app.logger.addHandler(handler)
