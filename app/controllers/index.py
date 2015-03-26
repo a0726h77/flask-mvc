@@ -9,7 +9,7 @@
     :license: BSD, see LICENSE for more details.
 """
 
-from project import app
+from app import app
 import time
 from sqlite3 import dbapi2 as sqlite3
 from hashlib import md5
@@ -18,8 +18,8 @@ from flask import Flask, request, session, url_for, redirect, \
      render_template, abort, g, flash, _app_ctx_stack
 from werkzeug import check_password_hash, generate_password_hash
 
-from project.models.models import db
-from project.models.user import User
+from app.models.models import db
+from app.models.user import User
 
 # configuration
 # PER_PAGE = 30

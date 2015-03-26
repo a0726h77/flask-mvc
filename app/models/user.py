@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from project.models.models import db
+from app.models.models import db
 
 class User(db.Model):
     __tablename__ = 'user'
