@@ -18,19 +18,16 @@ from flask import Flask, request, session, url_for, redirect, \
      render_template, abort, g, flash, _app_ctx_stack
 from werkzeug import check_password_hash, generate_password_hash
 
-from app.models.models import db
-from app.models.user import User
-from app.models.message import Message
-from app.models.follower import Follower
+from app.models.user import UserModel
+from app.models.message import MessageModel
+from app.models.follower import FollowerModel
+
+user_model = UserModel()
+message_model = MessageModel()
+follower_model = FollowerModel()
 
 # configuration
 PER_PAGE = 30
-
-
-def get_user_id(username):
-    """Convenience method to look up the id for a username."""
-    rv = User.query.filter(User.username == username).first()
-    return rv.user_id if rv else None
 
 
 def format_datetime(timestamp):
@@ -47,7 +44,7 @@ def timeline():
     if not g.user:
         return redirect(url_for('public_timeline'))
 
-    results = db.session.query(Message, User).filter(Message.author_id == User.user_id).filter(db.or_(User.user_id == session['user_id'], User.user_id.in_(Follower.query.with_entities(Follower.whom_id).filter(Follower.who_id == session['user_id'])))).order_by(Message.pub_date.desc()).limit(PER_PAGE)
+    results = message_model.getUserFollowerTimeline(session['user_id'], PER_PAGE)
 
     return render_template('twit/timeline.html', results=results)
 
@@ -55,7 +52,7 @@ def timeline():
 @app.endpoint('public_timeline')
 def public_timeline():
     """Displays the latest messages of all users."""
-    results = db.session.query(Message, User).filter(Message.author_id == User.user_id).order_by(Message.pub_date.desc()).limit(PER_PAGE)
+    results = message_model.getAll(PER_PAGE)
 
     return render_template('twit/timeline.html', results=results)
 
@@ -63,17 +60,15 @@ def public_timeline():
 @app.endpoint('user_timeline')
 def user_timeline(username):
     """Display's a users tweets."""
-    profile_user = User.query.filter(User.username == username).first()
+    profile_user = user_model.find(**{'username': username})
     if profile_user is None:
         abort(404)
 
     followed = False
     if g.user:
-        follower = Follower.query.filter(Follower.who_id == session['user_id']).filter(Follower.whom_id == profile_user.user_id).first()
-        if follower:
-            followed = True
+        followed = follower_model.followed(session['user_id'], profile_user.user_id)
 
-    results = db.session.query(Message, User).filter(User.user_id == Message.author_id).filter(User.user_id == profile_user.user_id).order_by(Message.pub_date.desc()).limit(PER_PAGE)
+    results = message_model.getUserTimeline(profile_user.user_id, limit=PER_PAGE)
 
     return render_template('twit/timeline.html', results=results, followed=followed, profile_user=profile_user)
 
@@ -83,16 +78,11 @@ def follow_user(username):
     """Adds the current user as follower of the given user."""
     if not g.user:
         abort(401)
-    whom_id = get_user_id(username)
+    whom_id = user_model.get_id(username)
     if whom_id is None:
         abort(404)
 
-    data = {}
-    data['who_id'] = session['user_id']
-    data['whom_id'] = whom_id
-
-    db.session.execute(Follower.__table__.insert(data))
-    db.session.commit()
+    follower_model.add(session['user_id'], whom_id)
 
     flash('You are now following "%s"' % username)
     return redirect(url_for('user_timeline', username=username))
@@ -103,12 +93,11 @@ def unfollow_user(username):
     """Removes the current user as follower of the given user."""
     if not g.user:
         abort(401)
-    whom_id = get_user_id(username)
+    whom_id = user_model.get_id(username)
     if whom_id is None:
         abort(404)
 
-    Follower.query.filter(Follower.who_id == session['user_id']).filter(Follower.whom_id == whom_id).delete()
-    db.session.commit()
+    follower_model.delete(session['user_id'], whom_id)
 
     flash('You are no longer following "%s"' % username)
     return redirect(url_for('user_timeline', username=username))
@@ -120,13 +109,7 @@ def add_message():
     if 'user_id' not in session:
         abort(401)
     if request.form['text']:
-        data = {}
-        data['author_id'] = session['user_id']
-        data['text'] = request.form['text']
-        data['pub_date'] = int(time.time())
-
-        db.session.execute(Message.__table__.insert(data))
-        db.session.commit()
+        message_model.add(session['user_id'], request.form['text'])
 
         flash('Your message was recorded')
     return redirect(url_for('timeline'))
@@ -142,7 +125,7 @@ def gravatar_url(email, size=80):
 def before_request():
     g.user = None
     if 'user_id' in session:
-        g.user = User.query.filter(User.user_id == session['user_id']).first()
+        g.user = user_model.find(**{'user_id': session['user_id']})
 
 
 # add some filters to jinja

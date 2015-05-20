@@ -18,8 +18,9 @@ from flask import Flask, request, session, url_for, redirect, \
      render_template, abort, g, flash, _app_ctx_stack
 from werkzeug import check_password_hash, generate_password_hash
 
-from app.models.models import db
-from app.models.user import User
+from app.models.user import UserModel
+
+user_model = UserModel()
 
 # configuration
 # PER_PAGE = 30
@@ -65,17 +66,11 @@ from app.models.user import User
 #     return (rv[0] if rv else None) if one else rv
 
 
-def get_user_id(username):
-    """Convenience method to look up the id for a username."""
-    rv = User.query.filter(User.username == username).first()
-    return rv.user_id if rv else None
-
-
 @app.before_request
 def before_request():
     g.user = None
     if 'user_id' in session:
-        g.user = User.query.filter(User.user_id == session['user_id']).first()
+        g.user = user_model.find(**{'user_id': session['user_id']})
 
 
 @app.endpoint('login')
@@ -85,7 +80,7 @@ def login():
         return redirect(url_for('timeline'))
     error = None
     if request.method == 'POST':
-        user = User.query.filter(User.username == request.form['username']).first()
+        user = user_model.find(**{'username': request.form['username']})
         if user is None:
             error = 'Invalid username'
         elif not check_password_hash(user.pw_hash,
@@ -114,7 +109,7 @@ def register():
             error = 'You have to enter a password'
         elif request.form['password'] != request.form['password2']:
             error = 'The two passwords do not match'
-        elif get_user_id(request.form['username']) is not None:
+        elif user_model.get_id(request.form['username']) is not None:
             error = 'The username is already taken'
         else:
             data = dict([[k, v] for k, v in request.form.items()])
@@ -124,8 +119,7 @@ def register():
             del data['password']
             del data['password2']
 
-            db.session.execute(User.__table__.insert(data))
-            db.session.commit()
+            user_model.add(data['username'], data['pw_hash'], data['email'])
 
             flash('You were successfully registered and can login now')
             return redirect(url_for('login'))
