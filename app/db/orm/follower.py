@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from app.models.models import db
+from app.db import db
 
 
 class Follower(db.Model):
