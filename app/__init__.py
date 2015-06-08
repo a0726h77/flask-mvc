@@ -52,19 +52,7 @@ db.init_app(app)
 
 
 #### router ####
-from werkzeug.routing import Rule
-
-urlpatterns = {
-    Rule('/', endpoint='timeline'),
-    Rule('/public', endpoint='public_timeline'),
-    Rule('/<username>', endpoint='user_timeline'),
-    Rule('/<username>/follow', endpoint='follow_user'),
-    Rule('/<username>/unfollow', endpoint='unfollow_user'),
-    Rule('/add_message', endpoint='add_message', methods=['POST']),
-    Rule('/login', endpoint='login', methods=['GET', 'POST']),
-    Rule('/register', endpoint='register', methods=['GET', 'POST']),
-    Rule('/logout', endpoint='logout'),
-}
+from url import urlpatterns
 
 for rule in urlpatterns:
     app.url_map.add(rule)
